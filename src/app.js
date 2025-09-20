@@ -10,31 +10,31 @@ import { notFound, errorHandler } from './middleware/errorHandler.js';
 
 const app = express();
 
-// CORS
+// CORS (must be first, before routes)
 app.use(cors(corsOptions));
 
-// Parsers
+// Body & cookies
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Logs (dev only)
+// Dev logs
 if (process.env.NODE_ENV !== 'production') {
   app.use(morgan('dev'));
 }
 
-// Root info page (prevents 404 at "/")
+// Root info page
 app.get('/', (_req, res) => {
   res.type('text').send('MSPixelPulse API is running. Try /health or /api/* endpoints.');
 });
 
-// Health check
+// Health check (Render health probe)
 app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
-// API
+// API routes
 app.use('/api', apiRouter);
 
-// Errors
+// Error handlers
 app.use(notFound);
 app.use(errorHandler);
 
