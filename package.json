@@ -1,44 +1,29 @@
 {
   "name": "capstone-backend",
   "version": "1.0.0",
-  "description": "Backend API for the Capstone project (Express + MongoDB, ESM)",
-  "private": true,
   "type": "module",
-  "main": "src/server.js",
+  "private": true,
+  "engines": { "node": ">=18" },
   "scripts": {
-    "dev": "nodemon --ext js,mjs,json --watch src src/server.js",
+    "dev": "node --env-file=.env src/server.js",
     "start": "node src/server.js",
-    "seed:admin": "node src/scripts/seedAdmin.js",
-    "lint": "echo \"(optional) add ESLint later\""
+    "seed:admin": "node src/scripts/seedAdmin.js"
   },
   "dependencies": {
-    "@headlessui/react": "^2.2.8",
-    "@heroicons/react": "^2.2.0",
-    "axios": "^1.12.2",
     "bcryptjs": "^2.4.3",
-    "classnames": "^2.5.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "googleapis": "^140.0.0",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
-    "mime-types": "^3.0.1",
-    "mongodb": "^6.20.0",
     "mongoose": "^8.6.1",
     "morgan": "^1.10.0",
-    "multer": "^2.0.0",
-    "nodemailer": "^6.9.14",
-    "react-router-dom": "^7.9.1"
+    "multer": "^1.4.5-lts.2",
+    "nodemailer": "^6.9.13"
   },
   "devDependencies": {
-    "autoprefixer": "^10.4.21",
-    "cross-env": "^10.0.0",
-    "nodemon": "^3.1.10",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^4.1.13"
-  },
-  "engines": {
-    "node": ">=20.11"
+    "nodemon": "^3.1.4"
   }
 }

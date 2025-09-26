@@ -1,37 +1,44 @@
+// src/features/projects/controllers/project.controller.js
 import Project from '../../../models/Project.js';
-import Task from '../../../models/Task.js';
-import slugify from '../../../utils/slugify.js';
 
-export async function createProject(req, res) {
-  const { name, client, description } = req.body;
-  if (!name) return res.status(400).json({ message: 'Name is required' });
+function toView(p) {
+  return {
+    _id: p._id,
+    title: p.name,
+    summary: p.description,
+    status: p.status === 'new' ? 'draft' : p.status === 'in-progress' ? 'active' : p.status,
+    client: p.client || null,
+    developer: Array.isArray(p.developers) ? (p.developers[0] || null) : null,
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+  };
+}
 
-  const project = await Project.create({
-    name,
-    slug: slugify(name),
-    client: client || null,
-    developers: [],
-    description: description || ''
-  });
-  res.status(201).json({ project });
+function fromView(body = {}) {
+  const out = {};
+  if ('title' in body) out.name = body.title;
+  if ('summary' in body) out.description = body.summary;
+  if ('status' in body) {
+    out.status = body.status === 'draft' ? 'new'
+      : body.status === 'active' ? 'in-progress'
+      : body.status;
+  }
+  if ('client' in body) out.client = body.client || null;
+  if ('developer' in body) out.developers = body.developer ? [body.developer] : [];
+  return out;
 }
 
 export async function listProjects(req, res) {
-  const user = req.user;
-  let query = {};
+  const where = {};
+  if (req.user?.role === 'client') where.client = req.user._id;
+  if (req.user?.role === 'developer') where.developers = req.user._id;
 
-  if (user.role === 'developer') {
-    query = { developers: user._id };
-  } else if (user.role === 'client') {
-    query = { client: user._id };
-  } // admin sees all
-
-  const projects = await Project.find(query)
+  const items = await Project.find(where)
     .populate('client', 'name email')
     .populate('developers', 'name email')
-    .sort({ createdAt: -1 });
+    .sort({ updatedAt: -1 });
 
-  res.json({ projects });
+  res.json({ projects: items.map(toView) });
 }
 
 export async function getProject(req, res) {
@@ -39,39 +46,27 @@ export async function getProject(req, res) {
     .populate('client', 'name email')
     .populate('developers', 'name email');
   if (!p) return res.status(404).json({ message: 'Project not found' });
-  res.json({ project: p });
+  res.json({ project: toView(p) });
+}
+
+export async function createProject(req, res) {
+  const payload = fromView(req.body);
+  if (!payload.name || !payload.name.trim()) return res.status(400).json({ message: 'Title is required' });
+  const created = await Project.create(payload);
+  res.status(201).json({ project: toView(created) });
 }
 
 export async function updateProject(req, res) {
-  const updates = (({ name, description, status }) => ({ name, description, status }))(req.body);
-  if (updates.name) updates.slug = slugify(updates.name);
-  const p = await Project.findByIdAndUpdate(req.params.projectId, updates, { new: true });
-  if (!p) return res.status(404).json({ message: 'Project not found' });
-  res.json({ project: p });
+  const patch = fromView(req.body);
+  const upd = await Project.findByIdAndUpdate(req.params.projectId, patch, { new: true })
+    .populate('client', 'name email')
+    .populate('developers', 'name email');
+  if (!upd) return res.status(404).json({ message: 'Project not found' });
+  res.json({ project: toView(upd) });
 }
 
-export async function assignDevelopers(req, res) {
-  const { developerIds = [] } = req.body; // [userId]
-  const p = await Project.findByIdAndUpdate(
-    req.params.projectId,
-    { $addToSet: { developers: { $each: developerIds } } },
-    { new: true }
-  ).populate('developers', 'name email');
-  if (!p) return res.status(404).json({ message: 'Project not found' });
-  res.json({ project: p });
-}
-
-// Tasks (very simple)
-export async function addTask(req, res) {
-  const { title, assignee, notes } = req.body;
-  if (!title) return res.status(400).json({ message: 'Title required' });
-  const task = await Task.create({ project: req.params.projectId, title, assignee, notes });
-  res.status(201).json({ task });
-}
-
-export async function listTasks(req, res) {
-  const tasks = await Task.find({ project: req.params.projectId })
-    .populate('assignee', 'name email')
-    .sort({ createdAt: -1 });
-  res.json({ tasks });
+export async function deleteProject(req, res) {
+  const ok = await Project.findByIdAndDelete(req.params.projectId);
+  if (!ok) return res.status(404).json({ message: 'Project not found' });
+  res.json({ message: 'Deleted' });
 }
