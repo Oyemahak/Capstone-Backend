@@ -1,8 +1,3 @@
----
-
-### 📄 Capstone-Backend README
-
-```markdown
 # Capstone Backend – MSPixelPulse API
 
 This repository contains the **backend API** for the Capstone project **MSPixelPulse**. It provides all authentication, user management, and project management features used by the frontend.
