@@ -53,7 +53,7 @@ PORT=4000
 NODE_ENV=development
 
 # MongoDB Atlas connection
-MONGO_URI=your-mongodb-uri
+MONGO_URI=**************
 
 # CORS – allow frontend URLs
 CORS_ORIGIN=http://localhost:5173,https://mspixelplus.vercel.app
@@ -71,9 +71,9 @@ SEED_ADMIN_PASSWORD=Admin@12345
 # Gmail SMTP for emails
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=your-gmail
-SMTP_PASS=your-app-password
-SMTP_FROM="MSPixelPulse <your-gmail>"
+SMTP_USER=mahakpateluiux@gmail.com
+SMTP_PASS=*********
+SMTP_FROM="MSPixelPulse <mahakpateluiux@gmail.com>"
 
 # File uploads
 UPLOAD_DIR=uploads
