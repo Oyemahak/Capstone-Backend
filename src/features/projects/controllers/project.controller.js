@@ -1,72 +1,78 @@
 // src/features/projects/controllers/project.controller.js
 import Project from '../../../models/Project.js';
 
-function toView(p) {
-  return {
-    _id: p._id,
-    title: p.name,
-    summary: p.description,
-    status: p.status === 'new' ? 'draft' : p.status === 'in-progress' ? 'active' : p.status,
-    client: p.client || null,
-    developer: Array.isArray(p.developers) ? (p.developers[0] || null) : null,
-    createdAt: p.createdAt,
-    updatedAt: p.updatedAt,
-  };
-}
+/* Small helper to populate user refs consistently */
+const POP = [
+  { path: 'client', select: 'name email role status' },
+  { path: 'developer', select: 'name email role status' },
+];
 
-function fromView(body = {}) {
-  const out = {};
-  if ('title' in body) out.name = body.title;
-  if ('summary' in body) out.description = body.summary;
-  if ('status' in body) {
-    out.status = body.status === 'draft' ? 'new'
-      : body.status === 'active' ? 'in-progress'
-      : body.status;
-  }
-  if ('client' in body) out.client = body.client || null;
-  if ('developer' in body) out.developers = body.developer ? [body.developer] : [];
-  return out;
-}
-
+/** GET /api/projects?status=&q= */
 export async function listProjects(req, res) {
-  const where = {};
-  if (req.user?.role === 'client') where.client = req.user._id;
-  if (req.user?.role === 'developer') where.developers = req.user._id;
+  const { q = '', status } = req.query;
 
-  const items = await Project.find(where)
-    .populate('client', 'name email')
-    .populate('developers', 'name email')
-    .sort({ updatedAt: -1 });
+  const cond = {};
+  if (status) cond.status = status;
+  if (q) {
+    const rx = { $regex: q, $options: 'i' };
+    cond.$or = [{ title: rx }, { summary: rx }];
+  }
 
-  res.json({ projects: items.map(toView) });
+  const projects = await Project.find(cond)
+    .sort({ createdAt: -1 })
+    .populate(POP);
+
+  res.json({ projects });
 }
 
+/** GET /api/projects/:projectId */
 export async function getProject(req, res) {
-  const p = await Project.findById(req.params.projectId)
-    .populate('client', 'name email')
-    .populate('developers', 'name email');
-  if (!p) return res.status(404).json({ message: 'Project not found' });
-  res.json({ project: toView(p) });
+  const { projectId } = req.params;
+  const project = await Project.findById(projectId).populate(POP);
+  if (!project) return res.status(404).json({ message: 'Project not found' });
+  res.json({ project });
 }
 
+/** POST /api/projects */
 export async function createProject(req, res) {
-  const payload = fromView(req.body);
-  if (!payload.name || !payload.name.trim()) return res.status(400).json({ message: 'Title is required' });
-  const created = await Project.create(payload);
-  res.status(201).json({ project: toView(created) });
+  const { title, summary = '', status = 'draft', client = null, developer = null } = req.body || {};
+  if (!title?.trim()) return res.status(400).json({ message: 'Title is required' });
+
+  const created = await Project.create({
+    title: title.trim(),
+    summary: summary.trim?.() || '',
+    status,
+    client: client || null,
+    developer: developer || null,
+  });
+
+  const project = await Project.findById(created._id).populate(POP);
+  res.status(201).json({ project });
 }
 
+/** PATCH /api/projects/:projectId */
 export async function updateProject(req, res) {
-  const patch = fromView(req.body);
-  const upd = await Project.findByIdAndUpdate(req.params.projectId, patch, { new: true })
-    .populate('client', 'name email')
-    .populate('developers', 'name email');
-  if (!upd) return res.status(404).json({ message: 'Project not found' });
-  res.json({ project: toView(upd) });
+  const { projectId } = req.params;
+  const allowed = ['title', 'summary', 'status', 'client', 'developer'];
+  const patch = {};
+  for (const k of allowed) if (k in req.body) patch[k] = req.body[k];
+
+  const project = await Project.findByIdAndUpdate(projectId, patch, {
+    new: true,
+    runValidators: true,
+  }).populate(POP);
+
+  if (!project) return res.status(404).json({ message: 'Project not found' });
+  res.json({ project });
 }
 
+/** DELETE /api/projects/:projectId */
 export async function deleteProject(req, res) {
-  const ok = await Project.findByIdAndDelete(req.params.projectId);
-  if (!ok) return res.status(404).json({ message: 'Project not found' });
-  res.json({ message: 'Deleted' });
+  const { projectId } = req.params;
+  const doc = await Project.findByIdAndDelete(projectId);
+  if (!doc) return res.status(404).json({ message: 'Project not found' });
+  res.json({ ok: true });
 }
+
+/* Optional backwards-compat alias if other files import removeProject */
+export const removeProject = deleteProject;

@@ -1,73 +1,84 @@
 // src/features/auth/controllers/auth.controller.js
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
-import User from '../../..//models/User.js';
+import User from '../../../models/User.js';
 
-function sign(user) {
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET || 'change-me', { expiresIn: '7d' });
-  return token;
+const JWT_SECRET = process.env.JWT_SECRET || 'change-me';
+const COOKIE_NAME = 'token';
+const COOKIE_OPTS = {
+  httpOnly: true,
+  sameSite: 'lax',
+  secure: process.env.NODE_ENV === 'production',
+  path: '/',
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7d
+};
+
+function signToken(user) {
+  return jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
 }
 
-/** POST /api/auth/login  (existing, keep yours if already working) */
-export async function login(req, res) {
-  const { email, password } = req.body || {};
-  if (!email || !password) return res.status(400).json({ message: 'Email and password required' });
+function getToken(req) {
+  const auth = req.headers.authorization;
+  if (auth?.startsWith('Bearer ')) return auth.slice(7);
+  if (req.cookies?.[COOKIE_NAME]) return req.cookies[COOKIE_NAME];
+  return null;
+}
 
-  const user = await User.findOne({ email }).select('+password');
+// POST /api/auth/register
+export async function register(req, res) {
+  const { name = '', email = '', password = '', role = 'client' } = req.body || {};
+  if (!email || !password) return res.status(400).json({ message: 'Email & password are required' });
+
+  const exists = await User.findOne({ email: email.toLowerCase().trim() });
+  if (exists) return res.status(409).json({ message: 'Email already in use' });
+
+  const u = await User.create({
+    name: name.trim(),
+    email: email.toLowerCase().trim(),
+    password,
+    role,               // client/developer/admin
+    status: 'pending',  // <-- requests must be approved by Admin
+  });
+
+  const user = await User.findById(u._id).select('-password');
+  res.status(201).json({ user });
+}
+
+// POST /api/auth/login
+export async function login(req, res) {
+  const { email = '', password = '' } = req.body || {};
+  const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
   if (!user) return res.status(401).json({ message: 'Invalid credentials' });
 
   const ok = await user.comparePassword(password);
   if (!ok) return res.status(401).json({ message: 'Invalid credentials' });
 
-  const token = sign(user);
-  // set http-only cookie as well (optional for your FE which also stores token)
-  res.cookie('token', token, { httpOnly: true, sameSite: 'lax', maxAge: 7 * 24 * 3600 * 1000 });
+  if (user.status !== 'active') {
+    return res.status(403).json({ message: 'Account is not active yet. Please wait for admin approval.' });
+  }
 
-  const safe = user.toObject(); delete safe.password;
-  return res.json({ user: safe, token });
+  const token = signToken(user);
+  res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
+
+  const safe = await User.findById(user._id).select('-password');
+  res.json({ token, user: safe });
 }
 
-/** POST /api/auth/logout  (keep your existing if present) */
+// POST /api/auth/logout
 export async function logout(_req, res) {
-  res.clearCookie('token');
+  res.clearCookie(COOKIE_NAME, { ...COOKIE_OPTS, maxAge: 0 });
   res.json({ ok: true });
 }
 
-/** GET /api/auth/me  (keep your existing if present) */
+// GET /api/auth/me
 export async function me(req, res) {
-  // req.user is set by requireAuth
-  res.json({ user: req.user || null });
-}
-
-/** NEW: POST /api/auth/register
- * Creates user with status 'pending' and chosen role (client | developer | admin).
- * These will appear in Admin Approvals and must be approved by an admin.
- */
-export async function register(req, res) {
-  const { name, email, password, role } = req.body || {};
-
-  if (!name || !email || !password) {
-    return res.status(400).json({ message: 'Name, email, and password are required' });
+  try {
+    const token = getToken(req);
+    if (!token) return res.status(401).json({ message: 'Unauthorized' });
+    const payload = jwt.verify(token, JWT_SECRET);
+    const user = await User.findById(payload.id).select('-password');
+    if (!user) return res.status(401).json({ message: 'Unauthorized' });
+    res.json({ user });
+  } catch {
+    res.status(401).json({ message: 'Unauthorized' });
   }
-
-  const roleNorm = (role || 'client').toLowerCase();
-  const allowed = ['client', 'developer', 'admin']; // you asked to allow all three
-  const finalRole = allowed.includes(roleNorm) ? roleNorm : 'client';
-
-  const exists = await User.findOne({ email });
-  if (exists) return res.status(409).json({ message: 'Email already registered' });
-
-  const user = await User.create({
-    name,
-    email,
-    password,       // model pre-save will hash
-    role: finalRole,
-    status: 'pending',
-  });
-
-  const safe = user.toObject(); delete safe.password;
-  return res.status(201).json({
-    message: 'Registration received. An admin will approve your account.',
-    user: safe,
-  });
 }
