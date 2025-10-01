@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "type": "module",
   "private": true,
-  "engines": { "node": ">=18" },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "dev": "node --env-file=.env src/server.js",
     "start": "node src/server.js",
@@ -22,7 +24,8 @@
     "mongoose": "^8.6.1",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.2",
-    "nodemailer": "^6.9.13"
+    "nodemailer": "^6.9.13",
+    "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"
