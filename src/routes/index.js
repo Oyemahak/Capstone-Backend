@@ -1,17 +1,21 @@
+// backend/src/routes/index.js
 import { Router } from "express";
 
-// features you already had
+// existing feature mounts
 import authFeatureRoutes from "../features/auth/routes/index.js";
 import adminFeatureRoutes from "../features/admin/routes/index.js";
 import projectFeatureRoutes from "../features/projects/routes/index.js";
 
-// new chat & directory
+// chat & directory
 import directoryRoutes from "./directory.js";
 import dmRoutes from "./dm.js";
 import roomsRoutes from "./rooms.js";
 
-// optional admin audit (default export)
+// admin audit (optional)
 import adminAuditRoutes from "./admin-audit.js";
+
+// NEW: contact/leads
+import contactRoutes from "../features/leads/routes/index.js";
 
 const router = Router();
 
@@ -21,9 +25,7 @@ router.use("/auth", authFeatureRoutes);
 // Admin feature
 router.use("/admin", adminFeatureRoutes);
 
-// ✅ Mount projects under /projects so /api/projects maps to the list,
-// and /api/projects/:projectId maps to details. This prevents
-// /api/projects from being captured by a catch-all "/:projectId".
+// Projects (list/detail)
 router.use("/projects", projectFeatureRoutes);
 
 // Directory + chat
@@ -33,5 +35,8 @@ router.use("/rooms", roomsRoutes);
 
 // Admin audit
 router.use("/admin-audit", adminAuditRoutes);
+
+// ✅ Contact form endpoint
+router.use("/contact", contactRoutes);
 
 export default router;

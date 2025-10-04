@@ -1,40 +1,46 @@
-import 'dotenv/config';
-import connectDB from './config/db.js';
-import app from './app.js';
-import http from 'http';
-import { Server } from 'socket.io';
+// backend/src/server.js
+import "dotenv/config";
+import connectDB from "./config/db.js";
+import app from "./app.js";
+import http from "http";
+import { Server } from "socket.io";
+import { verifyMailer } from "./lib/mailer.js";
 
 const PORT = process.env.PORT || 4000;
 
-const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
-app.set('io', io);
+async function boot() {
+  await connectDB();
+  console.log("✅ MongoDB connected");
 
-// (optional) auth handshake – wire up later to your JWT util
-io.use(async (socket, next) => {
-  try {
-    const token = socket.handshake.auth?.token;
-    if (!token) return next(new Error('unauthorized'));
-    // TODO: verify JWT like your HTTP middleware (jwt.verify)
-    socket.user = { _id: 'placeholder', role: 'developer' };
-    next();
-  } catch {
-    next(new Error('unauthorized'));
-  }
-});
+  await verifyMailer(); // logs ready or warns, does not crash
 
-io.on('connection', (socket) => {
-  socket.on('join', (room) => socket.join(room));
-  socket.on('leave', (room) => socket.leave(room));
-});
+  const server = http.createServer(app);
+  const io = new Server(server, { cors: { origin: "*" } });
+  app.set("io", io);
 
-connectDB()
-  .then(() => {
-    server.listen(PORT, () => {
-      console.log(`🚀 API ready on http://localhost:${PORT}`);
-    });
-  })
-  .catch((err) => {
-    console.error('Failed to connect DB:', err);
-    process.exit(1);
+  // (Optional) later: JWT handshake
+  io.use(async (socket, next) => {
+    try {
+      const token = socket.handshake.auth?.token;
+      if (!token) return next(new Error("unauthorized"));
+      socket.user = { _id: "placeholder", role: "developer" };
+      next();
+    } catch {
+      next(new Error("unauthorized"));
+    }
   });
+
+  io.on("connection", (socket) => {
+    socket.on("join", (room) => socket.join(room));
+    socket.on("leave", (room) => socket.leave(room));
+  });
+
+  server.listen(PORT, () => {
+    console.log(`🚀 API ready on http://localhost:${PORT}`);
+  });
+}
+
+boot().catch((err) => {
+  console.error("Fatal boot error:", err);
+  process.exit(1);
+});
