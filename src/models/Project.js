@@ -1,15 +1,38 @@
-// src/models/Project.js
+// backend/src/models/Project.js
 import mongoose from 'mongoose';
 import slugify from '../utils/slugify.js';
+
+// Small subdocs used by evidence
+const EvidenceImageSchema = new mongoose.Schema(
+  {
+    name: { type: String, trim: true },
+    type: { type: String, trim: true },
+    url:  { type: String, trim: true, required: true },
+  },
+  { _id: false }
+);
+
+const EvidenceEntrySchema = new mongoose.Schema(
+  {
+    title:  { type: String, trim: true, default: '' },
+    links:  [{ type: String, trim: true }],
+    images: [EvidenceImageSchema],
+    ts:     { type: Number, default: () => Date.now() },
+  },
+  { _id: false }
+);
 
 const ProjectSchema = new mongoose.Schema(
   {
     title:     { type: String, required: true, trim: true },
-    slug:      { type: String, unique: true, index: true }, // will be set in pre-validate
+    slug:      { type: String, unique: true, index: true },
     summary:   { type: String, default: '', trim: true },
     status:    { type: String, enum: ['draft', 'active', 'completed'], default: 'draft' },
     client:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     developer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+
+    // NEW: evidence timeline persisted by Admin/Dev
+    evidence:  { type: [EvidenceEntrySchema], default: [] },
   },
   { timestamps: true }
 );
@@ -22,7 +45,6 @@ ProjectSchema.pre('validate', async function (next) {
   let candidate = base;
   let n = 1;
 
-  // If editing existing doc, ignore collision with itself
   const exists = async (s) => {
     const q = { slug: s };
     if (this._id) q._id = { $ne: this._id };

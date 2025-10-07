@@ -1,3 +1,4 @@
+// backend/src/app.js
 import 'dotenv/config';
 import express from 'express';
 import cookieParser from 'cookie-parser';
@@ -33,7 +34,7 @@ app.get('/', (_req, res) => {
 // Health check
 app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
 
-// API routes
+// All API routes (includes files + invoices via routes/index.js)
 app.use('/api', apiRouter);
 
 // Errors

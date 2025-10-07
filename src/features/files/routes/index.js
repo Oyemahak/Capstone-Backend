@@ -1,10 +1,8 @@
-import { Router } from 'express';
-import { requireAuth } from '../../../middleware/auth.js';
-import { listFiles } from '../controllers/file.controller.js';
+// backend/src/features/files/routes/index.js
+import { Router } from "express";
+import { uploadBuffer, remove } from "../controllers/file.controller.js";
 
 const router = Router();
-
-router.use(requireAuth);
-router.get('/', listFiles);
-
+router.post("/upload", uploadBuffer);
+router.delete("/remove", remove);
 export default router;
