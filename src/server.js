@@ -4,15 +4,12 @@ import connectDB from './config/db.js';
 import app from './app.js';
 import http from 'http';
 import { Server } from 'socket.io';
-import { verifyMailer } from './lib/mailer.js';
 
 const PORT = process.env.PORT || 4000;
 
 async function boot() {
   await connectDB();
   console.log('✅ MongoDB connected');
-
-  await verifyMailer(); // logs ready or warns, does not crash
 
   const server = http.createServer(app);
   const io = new Server(server, {

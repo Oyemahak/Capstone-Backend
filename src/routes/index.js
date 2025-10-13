@@ -14,10 +14,7 @@ import roomsRoutes from "./rooms.js";
 // Admin audit (optional)
 import adminAuditRoutes from "./admin-audit.js";
 
-// NEW: contact/leads
-import contactRoutes from "../features/leads/routes/index.js";
-
-// NEW: files uploader + invoices (make sure filenames match exactly)
+// Files uploader + invoices (ensure these modules export their own base paths)
 import filesRoutes from "./files.routes.js";
 import invoiceRoutes from "./invoice.routes.js";
 
@@ -40,14 +37,8 @@ router.use("/rooms", roomsRoutes);
 // Admin audit
 router.use("/admin-audit", adminAuditRoutes);
 
-// Contact form endpoint
-router.use("/contact", contactRoutes);
-
-// ---------- NEW mounts ----------
-// POST /api/files/upload
+// Other mounts
 router.use(filesRoutes);
-
-// /api/projects/:projectId/invoices [...]
 router.use(invoiceRoutes);
 
 export default router;
