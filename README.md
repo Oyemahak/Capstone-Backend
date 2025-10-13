@@ -56,7 +56,7 @@ NODE_ENV=development
 MONGO_URI=**************
 
 # CORS – allow frontend URLs
-CORS_ORIGIN=http://localhost:5173,https://mspixelplus.vercel.app
+CORS_ORIGIN=http://localhost:5173,https://mspixelpulse.vercel.app
 
 # JWT
 JWT_SECRET=your-secret-key
