@@ -50,8 +50,8 @@ export async function createProject(req, res) {
 /**
  * PATCH /api/projects/:projectId
  *
- * Admin: may patch title, summary, status, client, developer, evidence
- * Developer: may patch ONLY evidence on projects where they are the assigned developer
+ * Admin: may patch title, summary, status, client, developer, evidence, announcements
+ * Developer: may patch ONLY evidence (not announcements – use POST endpoints)
  */
 export async function updateProject(req, res) {
   const { projectId } = req.params;
@@ -68,7 +68,7 @@ export async function updateProject(req, res) {
   }
 
   // Build patch based on role
-  const adminAllowed = ['title', 'summary', 'status', 'client', 'developer', 'evidence'];
+  const adminAllowed = ['title', 'summary', 'status', 'client', 'developer', 'evidence', 'announcements'];
   const devAllowed   = ['evidence'];
 
   const allowedKeys = isAdmin ? adminAllowed : devAllowed;
@@ -103,3 +103,88 @@ export async function deleteProject(req, res) {
 }
 
 export const removeProject = deleteProject;
+
+// ─────────────────────────────────────────────────────────────
+// Evidence – explicit endpoint to add one entry (Admin/Dev)
+// POST /api/projects/:projectId/evidence  body: { title, links[], images[] }
+// ─────────────────────────────────────────────────────────────
+export async function addEvidence(req, res) {
+  const { projectId } = req.params;
+  const me = req.user;
+
+  if (!['admin', 'developer'].includes(me.role)) {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+
+  const { title = 'Update', links = [], images = [] } = req.body || {};
+  const project = await Project.findById(projectId);
+  if (!project) return res.status(404).json({ message: 'Project not found' });
+
+  project.evidence.unshift({
+    title: String(title || 'Update'),
+    links: Array.isArray(links) ? links : [],
+    images: Array.isArray(images) ? images : [],
+    ts: Date.now(),
+    author: me._id,
+  });
+
+  await project.save();
+  const populated = await Project.findById(projectId).populate(POP);
+  res.status(201).json({ ok: true, project: populated });
+}
+
+// ─────────────────────────────────────────────────────────────
+// Announcements – visible to all; create by Admin/Dev
+// ─────────────────────────────────────────────────────────────
+/** GET /api/projects/:projectId/announcements */
+export async function listAnnouncements(req, res) {
+  const { projectId } = req.params;
+  const project = await Project.findById(projectId).select('announcements').lean();
+  if (!project) return res.status(404).json({ message: 'Project not found' });
+  const items = [...(project.announcements || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0));
+  res.json({ ok: true, items });
+}
+
+/** POST /api/projects/:projectId/announcements  (admin/dev) */
+export async function createAnnouncement(req, res) {
+  const { projectId } = req.params;
+  const me = req.user;
+
+  if (!['admin', 'developer'].includes(me.role)) {
+    return res.status(403).json({ message: 'Forbidden' });
+  }
+
+  const { title = '', body = '' } = req.body || {};
+  if (!title.trim()) return res.status(400).json({ message: 'Title is required' });
+
+  const project = await Project.findById(projectId);
+  if (!project) return res.status(404).json({ message: 'Project not found' });
+
+  const entry = { title: title.trim(), body: String(body || ''), ts: Date.now(), author: me._id };
+  project.announcements.unshift(entry);
+  await project.save();
+
+  const populated = await Project.findById(projectId).populate(POP);
+  res.status(201).json({ ok: true, announcement: entry, project: populated });
+}
+
+/** DELETE /api/projects/:projectId/announcements/:idx  (admin) */
+export async function deleteAnnouncement(req, res) {
+  const { projectId, idx } = req.params;
+  const me = req.user;
+
+  if (me.role !== 'admin') return res.status(403).json({ message: 'Forbidden' });
+
+  const project = await Project.findById(projectId);
+  if (!project) return res.status(404).json({ message: 'Project not found' });
+
+  const i = Number(idx);
+  if (!Number.isInteger(i) || i < 0 || i >= project.announcements.length) {
+    return res.status(400).json({ message: 'Invalid index' });
+  }
+  project.announcements.splice(i, 1);
+  await project.save();
+
+  const populated = await Project.findById(projectId).populate(POP);
+  res.json({ ok: true, project: populated });
+}

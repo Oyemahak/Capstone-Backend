@@ -7,6 +7,7 @@ import {
   getRequirement,
   upsertRequirement,
   setReview,
+  deleteRequirement,
   memUpload,
 } from "../controllers/requirement.controller.js";
 
@@ -16,25 +17,48 @@ const router = Router();
 router.get("/", requireAuth, ctrl.listProjects);
 router.get("/:projectId", requireAuth, ctrl.getProject);
 router.post("/", requireAuth, requireRole("admin"), ctrl.createProject);
-
-// IMPORTANT: allow devs to PATCH but controller enforces field-level permissions
 router.patch("/:projectId", requireAuth, ctrl.updateProject);
-
 router.delete("/:projectId", requireAuth, requireRole("admin"), ctrl.deleteProject);
 
 /* Requirements */
 router.get("/:projectId/requirements", requireAuth, getRequirement);
+
+// IMPORTANT: allow client to upload/update requirements (additive)
 router.put(
   "/:projectId/requirements",
   requireAuth,
+  requireRole(["admin", "developer", "client"]),
   memUpload.fields([
     { name: "logo", maxCount: 1 },
     { name: "brief", maxCount: 1 },
-    { name: "supporting", maxCount: 20 },
-    // dynamic pageFiles[*] accepted automatically
+    { name: "supporting", maxCount: 50 },
+    // dynamic pageFiles[Name][] handled in controller
   ]),
   upsertRequirement
 );
-router.patch("/:projectId/requirements/review", requireAuth, setReview);
+
+// Mark reviewed: only Admin/Dev
+router.patch(
+  "/:projectId/requirements/review",
+  requireAuth,
+  requireRole(["admin", "developer"]),
+  setReview
+);
+
+// Admin can clear the entire requirements doc
+router.delete(
+  "/:projectId/requirements",
+  requireAuth,
+  requireRole("admin"),
+  deleteRequirement
+);
+
+/* Evidence: Admin/Dev can append a single entry */
+router.post("/:projectId/evidence", requireAuth, ctrl.addEvidence);
+
+/* Announcements: visible to all; create by Admin/Dev */
+router.get("/:projectId/announcements", requireAuth, ctrl.listAnnouncements);
+router.post("/:projectId/announcements", requireAuth, ctrl.createAnnouncement);
+router.delete("/:projectId/announcements/:idx", requireAuth, ctrl.deleteAnnouncement);
 
 export default router;

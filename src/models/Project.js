@@ -2,7 +2,9 @@
 import mongoose from 'mongoose';
 import slugify from '../utils/slugify.js';
 
-// Small subdocs used by evidence
+// ─────────────────────────────────────────────────────────────
+// Evidence (unchanged from your current shape)
+// ─────────────────────────────────────────────────────────────
 const EvidenceImageSchema = new mongoose.Schema(
   {
     name: { type: String, trim: true },
@@ -18,21 +20,42 @@ const EvidenceEntrySchema = new mongoose.Schema(
     links:  [{ type: String, trim: true }],
     images: [EvidenceImageSchema],
     ts:     { type: Number, default: () => Date.now() },
+    author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // who added it
   },
   { _id: false }
 );
 
+// ─────────────────────────────────────────────────────────────
+ // NEW: Announcements (persisted timeline; visible to all, created by Admin/Dev)
+// ─────────────────────────────────────────────────────────────
+const AnnouncementEntrySchema = new mongoose.Schema(
+  {
+    title:  { type: String, required: true, trim: true },
+    body:   { type: String, default: '', trim: true },
+    ts:     { type: Number, default: () => Date.now() },
+    author: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, // who posted
+  },
+  { _id: false }
+);
+
+// ─────────────────────────────────────────────────────────────
+// Project
+// ─────────────────────────────────────────────────────────────
 const ProjectSchema = new mongoose.Schema(
   {
     title:     { type: String, required: true, trim: true },
     slug:      { type: String, unique: true, index: true },
     summary:   { type: String, default: '', trim: true },
     status:    { type: String, enum: ['draft', 'active', 'completed'], default: 'draft' },
+
     client:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     developer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
 
-    // NEW: evidence timeline persisted by Admin/Dev
-    evidence:  { type: [EvidenceEntrySchema], default: [] },
+    // Evidence timeline (Admin/Dev create)
+    evidence:       { type: [EvidenceEntrySchema],      default: [] },
+
+    // NEW: Announcements timeline (Admin/Dev create)
+    announcements:  { type: [AnnouncementEntrySchema],  default: [] },
   },
   { timestamps: true }
 );
