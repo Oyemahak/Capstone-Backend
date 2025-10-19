@@ -1,4 +1,4 @@
-// src/models/User.js
+// backend/src/models/User.js
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
 
@@ -9,6 +9,10 @@ const UserSchema = new mongoose.Schema(
     password: { type: String, required: true, select: true },
     role: { type: String, enum: ['admin', 'developer', 'client'], default: 'client' },
     status: { type: String, enum: ['pending', 'active', 'suspended'], default: 'pending' },
+
+    // NEW: avatar fields
+    avatarUrl: { type: String, trim: true, default: '' },  // public URL for header
+    avatarPath: { type: String, trim: true, default: '' }, // storage path for clean deletes
   },
   { timestamps: true }
 );

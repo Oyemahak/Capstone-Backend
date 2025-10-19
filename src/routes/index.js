@@ -18,6 +18,9 @@ import adminAuditRoutes from "./admin-audit.js";
 import filesRoutes from "./files.routes.js";
 import invoiceRoutes from "./invoice.routes.js";
 
+// NEW: user profile routes (avatar)
+import userProfileRoutes from "../features/users/routes/index.js";
+
 const router = Router();
 
 // Auth
@@ -40,5 +43,8 @@ router.use("/admin-audit", adminAuditRoutes);
 // Other mounts
 router.use(filesRoutes);
 router.use(invoiceRoutes);
+
+// NEW: users (me/avatar)
+router.use("/users", userProfileRoutes);
 
 export default router;

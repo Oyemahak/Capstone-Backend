@@ -1,4 +1,4 @@
-// src/features/auth/controllers/auth.controller.js
+// backend/src/features/auth/controllers/auth.controller.js
 import jwt from 'jsonwebtoken';
 import User from '../../../models/User.js';
 
