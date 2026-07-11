@@ -4,8 +4,13 @@ export function notFound(req, res, _next) {
 }
 
 export function errorHandler(err, _req, res, _next) {
-  console.error('❌ Error:', err);
+  console.error('Error:', err.code || err.name || 'SERVER_ERROR');
   const status = err.status || 500;
-  const message = err.message || 'Server error';
+  const message =
+    status === 500
+      ? 'Server error'
+      : err.code === 'STORAGE_UNAVAILABLE'
+        ? 'File storage is unavailable'
+        : err.message || 'Request failed';
   res.status(status).json({ message });
 }

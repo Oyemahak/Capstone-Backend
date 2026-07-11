@@ -1,6 +1,7 @@
 // backend/src/middleware/auth.js
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
+import { jwtSecret } from "../utils/jwt.js";
 
 function getToken(req) {
   const h = req.headers.authorization;
@@ -14,7 +15,7 @@ export async function requireAuth(req, res, next) {
     const token = getToken(req);
     if (!token) return res.status(401).json({ message: "Unauthorized" });
 
-    const payload = jwt.verify(token, process.env.JWT_SECRET || "change-me");
+    const payload = jwt.verify(token, jwtSecret());
     const userId = payload.id || payload.sub;
     if (!userId) return res.status(401).json({ message: "Unauthorized" });
 

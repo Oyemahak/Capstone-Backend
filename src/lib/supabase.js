@@ -6,20 +6,42 @@ import { createClient } from "@supabase/supabase-js";
  * Make sure these are set in your environment:
  *  - SUPABASE_URL
  *  - SUPABASE_SERVICE_ROLE_KEY
- *  - SUPABASE_BUCKET (optional; defaults to "mspp-files")
+ *  - SUPABASE_BUCKET (optional; defaults to "uploads")
  */
-const url = process.env.SUPABASE_URL;
-const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const url = String(process.env.SUPABASE_URL || "").trim();
+const key = String(process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
 
-if (!url || !key) {
-  console.warn("⚠️ SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing – uploads will fail.");
+export const SUPA_BUCKET = String(process.env.SUPABASE_BUCKET || "uploads").trim();
+export const supabaseConfigured = Boolean(url && key);
+export const storageBucketConfigured = Boolean(SUPA_BUCKET);
+
+if (!supabaseConfigured) {
+  console.warn("Supabase storage is not configured; upload endpoints will return 503.");
 }
 
-export const supabase = createClient(url, key, {
-  auth: { persistSession: false, autoRefreshToken: false },
-});
+export const supabase = supabaseConfigured
+  ? createClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+  : null;
 
-export const SUPA_BUCKET = process.env.SUPABASE_BUCKET || "mspp-files";
+export function storageStatus() {
+  return {
+    supabaseConfigured,
+    storageBucketConfigured,
+    bucket: storageBucketConfigured ? SUPA_BUCKET : null,
+  };
+}
+
+export function ensureStorageReady() {
+  if (!supabase || !storageBucketConfigured) {
+    const err = new Error("File storage is unavailable");
+    err.status = 503;
+    err.code = "STORAGE_UNAVAILABLE";
+    throw err;
+  }
+  return supabase;
+}
 
 /**
  * Upload a Node.js Buffer to Supabase Storage.
@@ -31,7 +53,8 @@ export const SUPA_BUCKET = process.env.SUPABASE_BUCKET || "mspp-files";
  * @param {string} contentType Mime type (default: application/octet-stream)
  */
 export async function uploadBuffer(path, buffer, contentType = "application/octet-stream") {
-  const { error } = await supabase
+  const client = ensureStorageReady();
+  const { error } = await client
     .storage
     .from(SUPA_BUCKET)
     .upload(path, buffer, { contentType, upsert: true });
@@ -39,7 +62,7 @@ export async function uploadBuffer(path, buffer, contentType = "application/octe
   if (error) throw error;
 
   // Prefer a 7-day signed URL (works for private buckets too)
-  const { data: signed, error: signErr } = await supabase
+  const { data: signed, error: signErr } = await client
     .storage
     .from(SUPA_BUCKET)
     .createSignedUrl(path, 60 * 60 * 24 * 7);
@@ -49,7 +72,7 @@ export async function uploadBuffer(path, buffer, contentType = "application/octe
   }
 
   // Fallback to public URL (if bucket is public)
-  const { data: pub } = supabase.storage.from(SUPA_BUCKET).getPublicUrl(path);
+  const { data: pub } = client.storage.from(SUPA_BUCKET).getPublicUrl(path);
   return { path, url: pub?.publicUrl || "" };
 }
 
@@ -58,7 +81,8 @@ export async function uploadBuffer(path, buffer, contentType = "application/octe
  * Useful when you stored only the path and need a fresh link later.
  */
 export async function createSignedUrl(path, expiresInSeconds = 60 * 60 * 24 * 7) {
-  const { data, error } = await supabase
+  const client = ensureStorageReady();
+  const { data, error } = await client
     .storage
     .from(SUPA_BUCKET)
     .createSignedUrl(path, expiresInSeconds);
@@ -70,7 +94,8 @@ export async function createSignedUrl(path, expiresInSeconds = 60 * 60 * 24 * 7)
  * Get a public URL (only works if bucket/object is public).
  */
 export function getPublicUrl(path) {
-  const { data } = supabase.storage.from(SUPA_BUCKET).getPublicUrl(path);
+  const client = ensureStorageReady();
+  const { data } = client.storage.from(SUPA_BUCKET).getPublicUrl(path);
   return data?.publicUrl || "";
 }
 
@@ -79,5 +104,6 @@ export function getPublicUrl(path) {
  */
 export async function removePath(path) {
   if (!path) return;
-  await supabase.storage.from(SUPA_BUCKET).remove([path]).catch(() => {});
+  const client = ensureStorageReady();
+  await client.storage.from(SUPA_BUCKET).remove([path]).catch(() => {});
 }

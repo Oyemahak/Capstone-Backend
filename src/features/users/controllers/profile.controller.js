@@ -1,34 +1,11 @@
 // backend/src/features/users/controllers/profile.controller.js
-import jwt from 'jsonwebtoken';
 import multer from 'multer';
 import path from 'path';
-import { supabase } from '../../../lib/supabase.js';
+import { ensureStorageReady, SUPA_BUCKET } from '../../../lib/supabase.js';
 import User from '../../../models/User.js';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'change-me';
-const BUCKET = process.env.SUPABASE_BUCKET || 'mspp-files';
 
 // in-memory file buffer
 export const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB
-
-function getToken(req) {
-  const auth = req.headers.authorization;
-  if (auth?.startsWith('Bearer ')) return auth.slice(7);
-  if (req.cookies?.token) return req.cookies.token;
-  return null;
-}
-export function requireAuth(req, res, next) {
-  try {
-    const t = getToken(req);
-    if (!t) return res.status(401).json({ message: 'Unauthorized' });
-    const p = jwt.verify(t, JWT_SECRET);
-    req.userId = p.id;
-    req.userRole = p.role;
-    next();
-  } catch {
-    return res.status(401).json({ message: 'Unauthorized' });
-  }
-}
 
 // POST /api/users/me/avatar  (form-data: avatar)
 export async function setMyAvatar(req, res) {
@@ -36,7 +13,8 @@ export async function setMyAvatar(req, res) {
     const file = req.file;
     if (!file) return res.status(400).json({ message: 'Avatar file is required' });
 
-    const user = await User.findById(req.userId);
+    const client = ensureStorageReady();
+    const user = await User.findById(req.user?._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     const ext = path.extname(file.originalname || '').toLowerCase() || '.png';
@@ -46,9 +24,9 @@ export async function setMyAvatar(req, res) {
     const contentType = file.mimetype || 'image/png';
 
     // upload to Supabase
-    const { error: upErr } = await supabase
+    const { error: upErr } = await client
       .storage
-      .from(BUCKET)
+      .from(SUPA_BUCKET)
       .upload(storePath, file.buffer, { contentType, upsert: true });
 
     if (upErr) {
@@ -57,12 +35,12 @@ export async function setMyAvatar(req, res) {
     }
 
     // public URL
-    const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(storePath);
+    const { data: pub } = client.storage.from(SUPA_BUCKET).getPublicUrl(storePath);
     const publicUrl = pub?.publicUrl || '';
 
     // Optionally remove old file if exists and different
     if (user.avatarPath && user.avatarPath !== storePath) {
-      await supabase.storage.from(BUCKET).remove([user.avatarPath]).catch(() => {});
+      await client.storage.from(SUPA_BUCKET).remove([user.avatarPath]).catch(() => {});
     }
 
     user.avatarUrl = publicUrl;
@@ -71,20 +49,21 @@ export async function setMyAvatar(req, res) {
 
     res.json({ ok: true, avatarUrl: publicUrl });
   } catch (e) {
-    console.error('setMyAvatar error:', e);
-    res.status(500).json({ message: 'Server error' });
+    console.error('setMyAvatar error:', e.code || e.message);
+    res.status(e.status || 500).json({ message: e.status === 503 ? 'File storage is unavailable' : 'Server error' });
   }
 }
 
 // DELETE /api/users/me/avatar
 export async function deleteMyAvatar(_req, res) {
   try {
-    const user = await User.findById(_req.userId);
+    const client = ensureStorageReady();
+    const user = await User.findById(_req.user?._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
     // remove from storage if present
     if (user.avatarPath) {
-      await supabase.storage.from(BUCKET).remove([user.avatarPath]).catch(() => {});
+      await client.storage.from(SUPA_BUCKET).remove([user.avatarPath]).catch(() => {});
     }
 
     user.avatarUrl = '';
@@ -93,7 +72,7 @@ export async function deleteMyAvatar(_req, res) {
 
     res.json({ ok: true });
   } catch (e) {
-    console.error('deleteMyAvatar error:', e);
-    res.status(500).json({ message: 'Server error' });
+    console.error('deleteMyAvatar error:', e.code || e.message);
+    res.status(e.status || 500).json({ message: e.status === 503 ? 'File storage is unavailable' : 'Server error' });
   }
 }

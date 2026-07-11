@@ -1,20 +1,17 @@
 // backend/src/features/auth/controllers/auth.controller.js
 import jwt from 'jsonwebtoken';
 import User from '../../../models/User.js';
+import { jwtSecret, signToken } from '../../../utils/jwt.js';
+import { boolEnv, isProduction } from '../../../config/env.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'change-me';
 const COOKIE_NAME = 'token';
 const COOKIE_OPTS = {
   httpOnly: true,
   sameSite: 'lax',
-  secure: process.env.NODE_ENV === 'production',
+  secure: isProduction() || boolEnv('COOKIE_SECURE', false),
   path: '/',
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7d
 };
-
-function signToken(user) {
-  return jwt.sign({ id: user._id, role: user.role }, JWT_SECRET, { expiresIn: '7d' });
-}
 
 function getToken(req) {
   const auth = req.headers.authorization;
@@ -26,14 +23,15 @@ function getToken(req) {
 // POST /api/auth/register
 export async function register(req, res) {
   const { name = '', email = '', password = '', role = 'client' } = req.body || {};
-  if (!email || !password) return res.status(400).json({ message: 'Email & password are required' });
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!normalizedEmail || !password) return res.status(400).json({ message: 'Email and password are required' });
 
-  const exists = await User.findOne({ email: email.toLowerCase().trim() });
+  const exists = await User.findOne({ email: normalizedEmail });
   if (exists) return res.status(409).json({ message: 'Email already in use' });
 
   const u = await User.create({
     name: name.trim(),
-    email: email.toLowerCase().trim(),
+    email: normalizedEmail,
     password,
     role,               // client/developer/admin
     status: 'pending',  // <-- requests must be approved by Admin
@@ -45,22 +43,32 @@ export async function register(req, res) {
 
 // POST /api/auth/login
 export async function login(req, res) {
-  const { email = '', password = '' } = req.body || {};
-  const user = await User.findOne({ email: email.toLowerCase().trim() }).select('+password');
-  if (!user) return res.status(401).json({ message: 'Invalid credentials' });
+  try {
+    const { email = '', password = '' } = req.body || {};
+    const normalizedEmail = String(email || '').trim().toLowerCase();
+    if (!normalizedEmail || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
 
-  const ok = await user.comparePassword(password);
-  if (!ok) return res.status(401).json({ message: 'Invalid credentials' });
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
+    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
 
-  if (user.status !== 'active') {
-    return res.status(403).json({ message: 'Account is not active yet. Please wait for admin approval.' });
+    const ok = await user.comparePassword(password);
+    if (!ok) return res.status(401).json({ message: 'Invalid credentials' });
+
+    if (user.status !== 'active') {
+      return res.status(403).json({ message: 'Account is not active. Please contact an administrator.' });
+    }
+
+    const token = signToken(user);
+    res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
+
+    const safe = await User.findById(user._id).select('-password');
+    return res.json({ token, user: safe });
+  } catch (err) {
+    console.error('Login error:', err.code || 'LOGIN_FAILURE');
+    return res.status(err.status || 500).json({ message: 'Login failed' });
   }
-
-  const token = signToken(user);
-  res.cookie(COOKIE_NAME, token, COOKIE_OPTS);
-
-  const safe = await User.findById(user._id).select('-password');
-  res.json({ token, user: safe });
 }
 
 // POST /api/auth/logout
@@ -74,7 +82,7 @@ export async function me(req, res) {
   try {
     const token = getToken(req);
     if (!token) return res.status(401).json({ message: 'Unauthorized' });
-    const payload = jwt.verify(token, JWT_SECRET);
+    const payload = jwt.verify(token, jwtSecret());
     const user = await User.findById(payload.id).select('-password');
     if (!user) return res.status(401).json({ message: 'Unauthorized' });
     res.json({ user });

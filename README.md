@@ -1,96 +1,218 @@
-# Capstone Backend – MSPixelPulse API
+# Capstone Backend - MSPixelPulse API
 
-This repository contains the **backend API** for the Capstone project **MSPixelPulse**. It provides all authentication, user management, and project management features used by the frontend.
+Express API for the MSPixelPulse capstone platform. The backend owns authentication, users, project data, messaging, requirements, invoices, and secure file upload workflows.
 
----
+## Architecture
 
-## Overview
-The backend is built using **Node.js with Express** and connected to **MongoDB Atlas**. It is deployed on **Render** and provides secure, role-based APIs for clients, developers, and admins.
+- MongoDB Atlas with Mongoose is the primary application database.
+- Users and authentication data live in MongoDB.
+- Business data such as projects, messages, requirements, invoices, and leads live in MongoDB.
+- Supabase is used for file storage only.
+- Render hosts the Express backend.
+- Vercel hosts the React frontend.
+- Authentication is custom JWT auth with Authorization header support and an HTTP-only cookie.
 
-- **Authentication**
-  - Register (default status: pending until approved by admin)
-  - Login and logout
-  - JWT-based sessions
+## Stack
 
-- **Admin Tools**
-  - Approve or reject new user registrations
-  - Manage users (update, delete, change role/status)
+- Node.js and Express
+- MongoDB Atlas and Mongoose
+- JSON Web Tokens
+- Supabase Storage, private bucket preferred
+- Multer memory uploads
+- Socket.IO
+- Render deployment
 
-- **Projects**
-  - Create, read, update, and delete projects
-  - Assign clients and developers
-  - Track project status (draft, active, completed)
+## Folder Structure
 
-- **Email Support**
-  - Configured with Gmail SMTP (via App Passwords) to send messages
+- `src/app.js` - Express app, middleware, health endpoints, API mounting
+- `src/server.js` - boot process, MongoDB connection, HTTP and Socket.IO server
+- `src/config/` - environment, CORS, MongoDB helpers
+- `src/features/` - feature controllers and routes
+- `src/models/` - Mongoose schemas
+- `src/middleware/` - auth, roles, error handling
+- `src/lib/` - Supabase/storage and health helpers
+- `src/scripts/` - seed and maintenance scripts
 
----
+## Setup
 
-## Tech Stack
-- **Node.js + Express**
-- **MongoDB Atlas with Mongoose**
-- **JWT authentication**
-- **Nodemailer (SMTP via Gmail)**
-- **Render** for deployment
-
----
-
-## Getting Started
-
-### 1. Clone the repository
-```bash
-git clone https://github.com/Oyemahak/Capstone-Backend.git
-cd Capstone-Backend
-```
-### 2. Install dependencies
 ```bash
 npm install
-```
-### 3. Configure environment variables
-Create a .env file in the root with:
-```bash
-PORT=4000
-NODE_ENV=development
-
-# MongoDB Atlas connection
-MONGO_URI=**************
-
-# CORS – allow frontend URLs
-CORS_ORIGIN=http://localhost:5173,https://mspixelpulse.vercel.app
-
-# JWT
-JWT_SECRET=your-secret-key
-JWT_EXPIRES_IN=7d
-COOKIE_SECURE=false
-
-# Seed Admin account
-SEED_ADMIN_NAME=Admin User
-SEED_ADMIN_EMAIL=admin@mspixel.plus
-SEED_ADMIN_PASSWORD=Admin@12345
-
-# Gmail SMTP for emails
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=mahakpateluiux@gmail.com
-SMTP_PASS=*********
-SMTP_FROM="MSPixelPulse <mahakpateluiux@gmail.com>"
-
-# File uploads
-UPLOAD_DIR=uploads
-```
-### 4. Run locally
-```bash
+cp .env.example .env
 npm run dev
 ```
-Runs the backend at http://localhost:4000.
 
----
+Local API default:
 
-## Deployment
-The backend is deployed on Render:
-- https://capstone-backend-o3o2.onrender.com/api
+```text
+http://localhost:5000
+```
 
----
+## Environment Variables
 
-## Author
-Developed & Designed by Mahak Patel (@Oyemahak)
+Use `.env.example` as the source of truth. Never commit `.env`.
+
+Required for normal operation:
+
+```text
+NODE_ENV=development
+PORT=5000
+MONGO_URI=mongodb+srv://USERNAME:PASSWORD@HOST/DATABASE
+JWT_SECRET=replace-with-long-random-secret
+JWT_EXPIRES_IN=7d
+CORS_ORIGIN=http://localhost:5173
+COOKIE_SECURE=false
+```
+
+Required for file uploads:
+
+```text
+SUPABASE_URL=https://PROJECT_REF.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=replace-with-server-secret
+SUPABASE_BUCKET=uploads
+```
+
+Production admin seed:
+
+```text
+ADMIN_EMAIL=admin@mspixel.pulse
+ADMIN_PASSWORD=replace-with-admin-password
+ADMIN_NAME=Admin User
+```
+
+Debug routes are disabled by default:
+
+```text
+ENABLE_DEBUG_ROUTES=false
+DEBUG_ROUTE_KEY=
+```
+
+## MongoDB
+
+MongoDB Atlas is required in production. If MongoDB cannot connect, the backend exits instead of running partially. Startup logs use sanitized error categories only.
+
+## Supabase Storage
+
+Supabase is storage only. Do not migrate authentication or database records to Supabase.
+
+Use a private bucket named:
+
+```text
+uploads
+```
+
+If Supabase variables are missing, the API still starts, login still works, and upload endpoints return a controlled `503` response.
+
+## Authentication Flow
+
+1. Frontend posts to `POST /api/auth/login`.
+2. Backend normalizes the email with `trim().toLowerCase()`.
+3. User is loaded from MongoDB.
+4. Password is verified with bcrypt.
+5. Active users receive a JWT.
+6. Frontend stores the token and redirects by role.
+
+Demo-safe local accounts:
+
+```text
+admin@mspixel.pulse
+client@mspixel.pulse
+dev@mspixel.pulse
+```
+
+Do not publish production passwords in docs or frontend code.
+
+## API Summary
+
+- `GET /health`
+- `GET /api/health`
+- `POST /api/auth/register`
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+- `GET /api/admin/users`
+- `GET /api/projects`
+- `POST /api/files/upload`
+- `PUT /api/projects/:projectId/requirements`
+- `POST /api/users/me/avatar`
+
+## Health Endpoints
+
+Health endpoints are public and safe:
+
+```bash
+curl https://capstone-backend-o3o2.onrender.com/health
+curl https://capstone-backend-o3o2.onrender.com/api/health
+```
+
+They report process status, environment, uptime, MongoDB state, and whether Supabase/storage config is present. They do not expose hosts, connection strings, keys, passwords, or tokens.
+
+## Seed Commands
+
+Production admin:
+
+```bash
+ADMIN_EMAIL=admin@mspixel.pulse ADMIN_PASSWORD='change-me' ADMIN_NAME='Admin User' npm run seed:admin
+```
+
+Local demo users:
+
+```bash
+npm run seed:demo
+```
+
+`seed:demo` is idempotent and resets the demo accounts listed above. Use it for local/dev only.
+
+## Dummy Data Cleanup
+
+Dry-run only:
+
+```bash
+npm run cleanup:dummy:dry
+```
+
+Confirmed cleanup:
+
+```bash
+npm run cleanup:dummy
+```
+
+The confirmed cleanup requires the script's `--confirm` flag, creates a JSON backup under the OS temp directory, and currently deletes only matched standalone lead records. Matched users and relational records are reported but preserved for manual review to avoid orphaned references. Review the dry-run output before running cleanup.
+
+Storage dry-run:
+
+```bash
+npm run cleanup:storage:dry
+```
+
+## Render Deployment
+
+Production Render variables should include:
+
+```text
+NODE_ENV=production
+MONGO_URI
+JWT_SECRET
+JWT_EXPIRES_IN=7d
+CORS_ORIGIN=https://mspixelpulse.vercel.app
+COOKIE_SECURE=true
+SUPABASE_URL
+SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_BUCKET=uploads
+```
+
+Do not overwrite real dashboard secrets with placeholder values.
+
+## Troubleshooting
+
+- Login fails with network errors: check Render service health and `/health`.
+- Health says MongoDB disconnected: check Atlas URI, Atlas network access, and database user.
+- Uploads return `503`: check Supabase URL, server secret key, and `SUPABASE_BUCKET=uploads`.
+- CORS errors: confirm `CORS_ORIGIN` includes the exact Vercel frontend origin.
+- Invalid credentials: seed the expected admin/demo users or confirm the account is active.
+
+## Security Notes
+
+- Never commit `.env`, cookies, keys, tokens, dumps, or backups.
+- Rotate secrets if they were ever committed to Git history.
+- Debug routes require `ENABLE_DEBUG_ROUTES=true` and, in production, `x-debug-key`.
+- Keep Supabase service keys on the backend only.

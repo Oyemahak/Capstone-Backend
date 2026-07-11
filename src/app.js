@@ -8,6 +8,7 @@ import morgan from 'morgan';
 import { corsOptions } from './config/cors.js';
 import apiRouter from './routes/index.js';
 import { notFound, errorHandler } from './middleware/errorHandler.js';
+import { healthPayload } from './lib/health.js';
 
 const app = express();
 
@@ -38,10 +39,10 @@ app.get('/', (_req, res) => {
 // ───────────────────────────────────────────────
 // Health checks for both base and /api paths
 // ───────────────────────────────────────────────
-app.get('/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
+app.get('/health', (_req, res) => res.json(healthPayload()));
 
 // ✅ IMPORTANT: add this one so frontend wake pings pass
-app.get('/api/health', (_req, res) => res.json({ ok: true, ts: Date.now() }));
+app.get('/api/health', (_req, res) => res.json(healthPayload()));
 
 // ───────────────────────────────────────────────
 // All API routes (includes /auth, /contact, etc.)

@@ -10,7 +10,11 @@
   "scripts": {
     "dev": "node --env-file=.env src/server.js",
     "start": "node src/server.js",
-    "seed:admin": "node src/scripts/seedAdmin.js"
+    "seed:admin": "node src/scripts/seedAdmin.js",
+    "seed:demo": "node src/scripts/seedDemo.js",
+    "cleanup:dummy:dry": "node src/scripts/cleanupDummy.js",
+    "cleanup:dummy": "node src/scripts/cleanupDummy.js --confirm",
+    "cleanup:storage:dry": "node src/scripts/storageCleanupDryRun.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.75.1",

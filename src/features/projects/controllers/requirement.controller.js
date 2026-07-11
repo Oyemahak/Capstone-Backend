@@ -43,6 +43,13 @@ export async function upsertRequirement(req, res) {
   const { projectId } = req.params;
   const me = req.user;
   const now = Date.now();
+  const filesByField = Array.isArray(req.files)
+    ? req.files.reduce((acc, file) => {
+        if (!acc[file.fieldname]) acc[file.fieldname] = [];
+        acc[file.fieldname].push(file);
+        return acc;
+      }, {})
+    : (req.files || {});
 
   const clean = (s) => String(s || "").replace(/[^\w.\- ]+/g, "_");
   const norm = (s) => String(s || "").trim();
@@ -68,23 +75,23 @@ export async function upsertRequirement(req, res) {
   const next = current.toObject();
 
   // Core uploads (replace field only)
-  if (req.files?.logo?.[0]) next.logo  = await put(req.files.logo[0], "core/logo");
-  if (req.files?.brief?.[0]) next.brief = await put(req.files.brief[0], "core/brief");
+  if (filesByField?.logo?.[0]) next.logo  = await put(filesByField.logo[0], "core/logo");
+  if (filesByField?.brief?.[0]) next.brief = await put(filesByField.brief[0], "core/brief");
 
   // Supporting docs (append)
-  if (Array.isArray(req.files?.supporting) && req.files.supporting.length) {
+  if (Array.isArray(filesByField?.supporting) && filesByField.supporting.length) {
     const uploaded = [];
-    for (const f of req.files.supporting) uploaded.push(await put(f, "supporting"));
+    for (const f of filesByField.supporting) uploaded.push(await put(f, "supporting"));
     next.supporting = Array.isArray(next.supporting) ? [...next.supporting, ...uploaded] : uploaded;
   }
 
   // Per-page uploads keyed by field name pageFiles[<Name>]
   const perPageUploads = {};
-  for (const field of Object.keys(req.files || {})) {
+  for (const field of Object.keys(filesByField || {})) {
     const m = field.match(/^pageFiles\[(.+)\]$/);
     if (!m) continue;
     const pageName = m[1];
-    for (const f of req.files[field]) {
+    for (const f of filesByField[field]) {
       const ref = await put(f, `pages/${encodeURIComponent(pageName)}`);
       if (!perPageUploads[pageName]) perPageUploads[pageName] = [];
       perPageUploads[pageName].push(ref);

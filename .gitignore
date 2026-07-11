@@ -27,6 +27,8 @@ logs/*
 pids
 *.pid
 *.seed
+*.cookies
+cookies.txt
 
 # Build output
 dist/

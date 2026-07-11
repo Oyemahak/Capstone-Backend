@@ -1,6 +1,7 @@
 // backend/src/features/users/routes/index.js
 import { Router } from 'express';
-import { requireAuth, upload, setMyAvatar, deleteMyAvatar } from '../controllers/profile.controller.js';
+import { requireAuth } from '../../../middleware/auth.js';
+import { upload, setMyAvatar, deleteMyAvatar } from '../controllers/profile.controller.js';
 
 const router = Router();
 

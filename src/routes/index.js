@@ -5,6 +5,7 @@ import { Router } from "express";
 import authFeatureRoutes from "../features/auth/routes/index.js";
 import adminFeatureRoutes from "../features/admin/routes/index.js";
 import projectFeatureRoutes from "../features/projects/routes/index.js";
+import debugRoutes from "../features/debug/routes/index.js";
 
 // Chat & directory
 import directoryRoutes from "./directory.js";
@@ -46,5 +47,8 @@ router.use(invoiceRoutes);
 
 // NEW: users (me/avatar)
 router.use("/users", userProfileRoutes);
+
+// Debug maintenance routes are disabled unless ENABLE_DEBUG_ROUTES=true.
+router.use("/debug", debugRoutes);
 
 export default router;

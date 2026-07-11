@@ -4,12 +4,12 @@ import connectDB from './config/db.js';
 import app from './app.js';
 import http from 'http';
 import { Server } from 'socket.io';
+import { sanitizeErrorCategory } from './config/env.js';
 
 const PORT = process.env.PORT || 4000;
 
 async function boot() {
   await connectDB();
-  console.log('✅ MongoDB connected');
 
   const server = http.createServer(app);
   const io = new Server(server, {
@@ -38,11 +38,21 @@ async function boot() {
   });
 
   server.listen(PORT, () => {
-    console.log(`🚀 API ready on http://localhost:${PORT}`);
+    console.log(`API ready on port ${PORT}`);
   });
 }
 
 boot().catch((err) => {
-  console.error('Fatal boot error:', err);
+  console.error('Fatal boot error:', err.safeCategory || sanitizeErrorCategory(err));
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection:', sanitizeErrorCategory(err));
+  process.exit(1);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', sanitizeErrorCategory(err));
   process.exit(1);
 });

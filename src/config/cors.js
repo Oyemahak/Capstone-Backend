@@ -4,6 +4,17 @@ const allowed = (process.env.CORS_ORIGIN || '')
   .map(s => s.trim())
   .filter(Boolean);
 
+function originMatches(origin, allowedOrigin) {
+  if (allowedOrigin === origin) return true;
+  if (allowedOrigin.includes('*')) {
+    const pattern = '^' + allowedOrigin
+      .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+      .replace(/\\\*/g, '.*') + '$';
+    return new RegExp(pattern).test(origin);
+  }
+  return false;
+}
+
 export const corsOptions = {
   origin(origin, cb) {
     if (!origin) return cb(null, true);
@@ -11,12 +22,12 @@ export const corsOptions = {
       const u = new URL(origin);
       const host = u.hostname;
 
-      if (allowed.includes(origin)) return cb(null, true);
+      if (allowed.some((entry) => originMatches(origin, entry))) return cb(null, true);
       if (host === 'localhost' || host === '127.0.0.1') return cb(null, true);
       if (host.endsWith('.vercel.app')) return cb(null, true);
       if (host.endsWith('mspixelplus.com')) return cb(null, true);
     } catch (err) {
-      console.error('CORS check failed:', err.message);
+      console.error('CORS check failed');
     }
     return cb(new Error(`CORS blocked for origin: ${origin}`));
   },

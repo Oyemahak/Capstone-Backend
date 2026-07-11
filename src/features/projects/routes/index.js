@@ -28,12 +28,7 @@ router.put(
   "/:projectId/requirements",
   requireAuth,
   requireRole(["admin", "developer", "client"]),
-  memUpload.fields([
-    { name: "logo", maxCount: 1 },
-    { name: "brief", maxCount: 1 },
-    { name: "supporting", maxCount: 50 },
-    // dynamic pageFiles[Name][] handled in controller
-  ]),
+  memUpload.any(),
   upsertRequirement
 );
 
