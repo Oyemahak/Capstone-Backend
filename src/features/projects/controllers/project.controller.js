@@ -7,6 +7,43 @@ const POP = [
   { path: 'developer', select: 'name email role status' },
 ];
 
+const PORTFOLIO_FIELDS = [
+  'shortDescription',
+  'fullDescription',
+  'projectClassification',
+  'industry',
+  'websiteType',
+  'platform',
+  'technologies',
+  'repositoryUrl',
+  'liveUrl',
+  'thumbnail',
+  'mockupImages',
+  'galleryImages',
+  'featured',
+  'published',
+  'displayOrder',
+  'completionDate',
+  'clientName',
+  'projectOverview',
+  'challenge',
+  'solution',
+  'keyFeatures',
+  'responsiveHighlights',
+  'servicesProvided',
+  'resultSummary',
+  'seoTitle',
+  'seoDescription',
+  'imageAltText',
+];
+
+const PUBLIC_SELECT = [
+  'title',
+  'slug',
+  'summary',
+  ...PORTFOLIO_FIELDS,
+].join(' ');
+
 /** GET /api/projects?status=&q= */
 export async function listProjects(req, res) {
   const { q = '', status } = req.query;
@@ -22,6 +59,45 @@ export async function listProjects(req, res) {
   res.json({ projects });
 }
 
+/** GET /api/public/projects?industry=&classification=&q= */
+export async function listPublicProjects(req, res) {
+  const { q = '', industry, classification, websiteType } = req.query;
+
+  const cond = { published: true };
+  if (industry) cond.industry = industry;
+  if (classification) cond.projectClassification = classification;
+  if (websiteType) cond.websiteType = websiteType;
+  if (q) {
+    const rx = { $regex: q, $options: 'i' };
+    cond.$or = [
+      { title: rx },
+      { summary: rx },
+      { shortDescription: rx },
+      { fullDescription: rx },
+      { industry: rx },
+      { websiteType: rx },
+      { platform: rx },
+      { technologies: rx },
+      { servicesProvided: rx },
+    ];
+  }
+
+  const projects = await Project.find(cond)
+    .select(PUBLIC_SELECT)
+    .sort({ featured: -1, displayOrder: 1, completionDate: -1, createdAt: -1 })
+    .lean();
+
+  res.json({ projects });
+}
+
+/** GET /api/public/projects/:slug */
+export async function getPublicProject(req, res) {
+  const { slug } = req.params;
+  const project = await Project.findOne({ slug, published: true }).select(PUBLIC_SELECT).lean();
+  if (!project) return res.status(404).json({ message: 'Project not found' });
+  res.json({ project });
+}
+
 /** GET /api/projects/:projectId */
 export async function getProject(req, res) {
   const { projectId } = req.params;
@@ -32,8 +108,20 @@ export async function getProject(req, res) {
 
 /** POST /api/projects  (admin) */
 export async function createProject(req, res) {
-  const { title, summary = '', status = 'draft', client = null, developer = null } = req.body || {};
+  const {
+    title,
+    summary = '',
+    status = 'draft',
+    client = null,
+    developer = null,
+    ...rest
+  } = req.body || {};
   if (!title?.trim()) return res.status(400).json({ message: 'Title is required' });
+
+  const portfolioPatch = {};
+  for (const key of PORTFOLIO_FIELDS) {
+    if (key in rest) portfolioPatch[key] = rest[key];
+  }
 
   const created = await Project.create({
     title: title.trim(),
@@ -41,6 +129,7 @@ export async function createProject(req, res) {
     status,
     client: client || null,
     developer: developer || null,
+    ...portfolioPatch,
   });
 
   const project = await Project.findById(created._id).populate(POP);
@@ -68,7 +157,16 @@ export async function updateProject(req, res) {
   }
 
   // Build patch based on role
-  const adminAllowed = ['title', 'summary', 'status', 'client', 'developer', 'evidence', 'announcements'];
+  const adminAllowed = [
+    'title',
+    'summary',
+    'status',
+    'client',
+    'developer',
+    'evidence',
+    'announcements',
+    ...PORTFOLIO_FIELDS,
+  ];
   const devAllowed   = ['evidence'];
 
   const allowedKeys = isAdmin ? adminAllowed : devAllowed;

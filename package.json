@@ -12,6 +12,7 @@
     "start": "node src/server.js",
     "seed:admin": "node src/scripts/seedAdmin.js",
     "seed:demo": "node src/scripts/seedDemo.js",
+    "seed:projects": "node src/scripts/seedProjects.js",
     "cleanup:dummy:dry": "node src/scripts/cleanupDummy.js",
     "cleanup:dummy": "node src/scripts/cleanupDummy.js --confirm",
     "cleanup:storage:dry": "node src/scripts/storageCleanupDryRun.js"

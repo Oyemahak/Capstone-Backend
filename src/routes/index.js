@@ -6,6 +6,10 @@ import authFeatureRoutes from "../features/auth/routes/index.js";
 import adminFeatureRoutes from "../features/admin/routes/index.js";
 import projectFeatureRoutes from "../features/projects/routes/index.js";
 import debugRoutes from "../features/debug/routes/index.js";
+import {
+  getPublicProject,
+  listPublicProjects,
+} from "../features/projects/controllers/project.controller.js";
 
 // Chat & directory
 import directoryRoutes from "./directory.js";
@@ -31,6 +35,8 @@ router.use("/auth", authFeatureRoutes);
 router.use("/admin", adminFeatureRoutes);
 
 // Projects (list/detail)
+router.get("/public/projects", listPublicProjects);
+router.get("/public/projects/:slug", getPublicProject);
 router.use("/projects", projectFeatureRoutes);
 
 // Directory + chat

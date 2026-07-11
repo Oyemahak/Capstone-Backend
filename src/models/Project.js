@@ -38,6 +38,15 @@ const AnnouncementEntrySchema = new mongoose.Schema(
   { _id: false }
 );
 
+const ProjectImageSchema = new mongoose.Schema(
+  {
+    url: { type: String, trim: true },
+    alt: { type: String, trim: true, default: '' },
+    caption: { type: String, trim: true, default: '' },
+  },
+  { _id: false }
+);
+
 // ─────────────────────────────────────────────────────────────
 // Project
 // ─────────────────────────────────────────────────────────────
@@ -56,6 +65,41 @@ const ProjectSchema = new mongoose.Schema(
 
     // NEW: Announcements timeline (Admin/Dev create)
     announcements:  { type: [AnnouncementEntrySchema],  default: [] },
+
+    // Public portfolio metadata. All fields are optional so existing portal
+    // projects remain backwards-compatible.
+    shortDescription: { type: String, default: '', trim: true },
+    fullDescription: { type: String, default: '', trim: true },
+    projectClassification: {
+      type: String,
+      enum: ['live', 'demo', 'concept'],
+      default: 'demo',
+      index: true,
+    },
+    industry: { type: String, default: '', trim: true, index: true },
+    websiteType: { type: String, default: '', trim: true, index: true },
+    platform: { type: String, default: '', trim: true },
+    technologies: [{ type: String, trim: true }],
+    repositoryUrl: { type: String, default: '', trim: true },
+    liveUrl: { type: String, default: '', trim: true },
+    thumbnail: { type: String, default: '', trim: true },
+    mockupImages: { type: [ProjectImageSchema], default: [] },
+    galleryImages: { type: [ProjectImageSchema], default: [] },
+    featured: { type: Boolean, default: false, index: true },
+    published: { type: Boolean, default: false, index: true },
+    displayOrder: { type: Number, default: 999, index: true },
+    completionDate: { type: Date, default: null },
+    clientName: { type: String, default: '', trim: true },
+    projectOverview: { type: String, default: '', trim: true },
+    challenge: { type: String, default: '', trim: true },
+    solution: { type: String, default: '', trim: true },
+    keyFeatures: [{ type: String, trim: true }],
+    responsiveHighlights: [{ type: String, trim: true }],
+    servicesProvided: [{ type: String, trim: true }],
+    resultSummary: { type: String, default: '', trim: true },
+    seoTitle: { type: String, default: '', trim: true },
+    seoDescription: { type: String, default: '', trim: true },
+    imageAltText: { type: String, default: '', trim: true },
   },
   { timestamps: true }
 );
