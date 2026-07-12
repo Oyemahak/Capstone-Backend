@@ -3,9 +3,27 @@ import mongoose from 'mongoose';
 import User from '../models/User.js';
 
 const FIXTURES = [
-  { name: 'Admin', email: 'admin@mspixel.pulse', password: 'admin', role: 'admin', status: 'active' },
-  { name: 'Client', email: 'client@mspixel.pulse', password: 'client', role: 'client', status: 'active' },
-  { name: 'Developer', email: 'dev@mspixel.pulse', password: 'developer', role: 'developer', status: 'active' },
+  {
+    name: 'Admin',
+    email: process.env.SEED_DEMO_ADMIN_EMAIL || 'admin@mspixelpulse.local',
+    passwordEnv: 'SEED_DEMO_ADMIN_PASSWORD',
+    role: 'admin',
+    status: 'active',
+  },
+  {
+    name: 'Client',
+    email: process.env.SEED_DEMO_CLIENT_EMAIL || 'client@mspixelpulse.local',
+    passwordEnv: 'SEED_DEMO_CLIENT_PASSWORD',
+    role: 'client',
+    status: 'active',
+  },
+  {
+    name: 'Developer',
+    email: process.env.SEED_DEMO_DEVELOPER_EMAIL || 'dev@mspixelpulse.local',
+    passwordEnv: 'SEED_DEMO_DEVELOPER_PASSWORD',
+    role: 'developer',
+    status: 'active',
+  },
 ];
 
 async function main() {
@@ -15,9 +33,19 @@ async function main() {
   const results = [];
   for (const fixture of FIXTURES) {
     const email = fixture.email.toLowerCase();
+    const password = process.env[fixture.passwordEnv]?.trim();
+    if (!password) throw new Error(`${fixture.passwordEnv} is required`);
+
     let user = await User.findOne({ email }).select('+password');
     if (!user) {
-      user = await User.create({ ...fixture, email });
+      user = await User.create({
+        name: fixture.name,
+        email,
+        password,
+        role: fixture.role,
+        status: fixture.status,
+        accountStatus: fixture.status,
+      });
       results.push({ email, action: 'created' });
       continue;
     }
@@ -25,7 +53,8 @@ async function main() {
     user.name = fixture.name;
     user.role = fixture.role;
     user.status = fixture.status;
-    user.password = fixture.password;
+    user.accountStatus = fixture.status;
+    user.password = password;
     await user.save();
     results.push({ email, action: 'updated' });
   }

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This is the required entry point for Codex and future AI coding agents working in Capstone Backend.
+This is the required entry point for Codex and future AI coding agents working in MSPixelPulse Backend.
 
 ## First Steps
 1. Read [.agents/README.md](.agents/README.md).

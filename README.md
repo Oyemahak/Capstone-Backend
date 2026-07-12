@@ -1,6 +1,6 @@
-# Capstone Backend - MSPixelPulse API
+# MSPixelPulse Backend
 
-Express API for the MSPixelPulse capstone platform. The backend owns authentication, users, project data, messaging, requirements, invoices, and secure file upload workflows.
+Official MSPixelPulse backend API for authentication, users, agency projects, client workspaces, messaging, billing, portfolio content, and secure file workflows.
 
 ## Architecture
 
@@ -71,12 +71,12 @@ SUPABASE_SERVICE_ROLE_KEY=replace-with-server-secret
 SUPABASE_BUCKET=uploads
 ```
 
-Production admin seed:
+Production super-admin seed:
 
 ```text
-ADMIN_EMAIL=admin@mspixel.pulse
-ADMIN_PASSWORD=replace-with-admin-password
-ADMIN_NAME=Admin User
+SUPER_ADMIN_EMAIL=mahakpateluiux@gmail.com
+SUPER_ADMIN_PASSWORD=replace-with-render-secret
+SUPER_ADMIN_NAME=Mahak Patel
 ```
 
 Debug routes are disabled by default:
@@ -111,15 +111,7 @@ If Supabase variables are missing, the API still starts, login still works, and 
 5. Active users receive a JWT.
 6. Frontend stores the token and redirects by role.
 
-Demo-safe local accounts:
-
-```text
-admin@mspixel.pulse
-client@mspixel.pulse
-dev@mspixel.pulse
-```
-
-Do not publish production passwords in docs or frontend code.
+Demo-safe accounts should be created with environment-provided passwords only. Do not publish production or demo passwords in docs, frontend code, backend code, logs, or seed output.
 
 ## API Summary
 
@@ -148,19 +140,27 @@ They report process status, environment, uptime, MongoDB state, and whether Supa
 
 ## Seed Commands
 
-Production admin:
+Protected production super admin:
 
 ```bash
-ADMIN_EMAIL=admin@mspixel.pulse ADMIN_PASSWORD='change-me' ADMIN_NAME='Admin User' npm run seed:admin
+SUPER_ADMIN_EMAIL='mahakpateluiux@gmail.com' SUPER_ADMIN_PASSWORD='set-in-render' SUPER_ADMIN_NAME='Mahak Patel' npm run seed:super-admin
 ```
 
-Local demo users:
+Portal demo users and sample invoice:
 
 ```bash
+PORTAL_DEMO_CLIENT_PASSWORD='set-secure-value' PORTAL_DEMO_DEVELOPER_PASSWORD='set-secure-value' npm run seed:portal-demo
+npm run seed:demo-invoice
+```
+
+Legacy local demo users require explicit password environment variables:
+
+```bash
+SEED_DEMO_ADMIN_PASSWORD='set-secure-value' SEED_DEMO_CLIENT_PASSWORD='set-secure-value' SEED_DEMO_DEVELOPER_PASSWORD='set-secure-value' \
 npm run seed:demo
 ```
 
-`seed:demo` is idempotent and resets the demo accounts listed above. Use it for local/dev only.
+Seed commands are idempotent and do not log passwords. Use demo seeds for local/dev or controlled production preview data only.
 
 ## Dummy Data Cleanup
 
@@ -198,6 +198,9 @@ COOKIE_SECURE=true
 SUPABASE_URL
 SUPABASE_SERVICE_ROLE_KEY
 SUPABASE_BUCKET=uploads
+SUPER_ADMIN_EMAIL
+SUPER_ADMIN_PASSWORD
+SUPER_ADMIN_NAME
 ```
 
 Do not overwrite real dashboard secrets with placeholder values.

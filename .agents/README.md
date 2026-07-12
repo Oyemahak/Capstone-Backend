@@ -1,6 +1,6 @@
 # MSPixelPulse Multi-Agent Operating System
 
-This directory defines a practical operating system for Codex and future AI coding agents working on Capstone Backend.
+This directory defines a practical operating system for Codex and future AI coding agents working on MSPixelPulse Backend.
 
 ## Purpose
 Help agents plan, design, build, test, market, optimize, document, secure, and grow MSPixelPulse while protecting production functionality and truthful communication.

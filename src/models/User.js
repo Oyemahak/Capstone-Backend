@@ -9,6 +9,10 @@ const UserSchema = new mongoose.Schema(
     password: { type: String, required: true, select: true },
     role: { type: String, enum: ['admin', 'developer', 'client'], default: 'client' },
     status: { type: String, enum: ['pending', 'active', 'suspended'], default: 'pending' },
+    accountStatus: { type: String, enum: ['pending', 'active', 'suspended'], default: 'pending' },
+    isSuperAdmin: { type: Boolean, default: false, index: true },
+    isProtected: { type: Boolean, default: false, index: true },
+    protectedReason: { type: String, trim: true, default: '' },
 
     // NEW: avatar fields
     avatarUrl: { type: String, trim: true, default: '' },  // public URL for header
