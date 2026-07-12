@@ -6,6 +6,7 @@ import { portfolioProjects } from '../data/portfolioProjects.js';
 const FORCE = process.env.PORTFOLIO_FORCE === 'true';
 
 const mutableFields = [
+  'slug',
   'title',
   'summary',
   'shortDescription',
@@ -71,7 +72,12 @@ function buildPatch(existing, project) {
       current === '' ||
       (Array.isArray(current) && current.length === 0);
 
-    if (FORCE || emptyCurrent || ['published', 'featured', 'displayOrder', 'status'].includes(key)) {
+    if (
+      key === 'slug' ||
+      FORCE ||
+      emptyCurrent ||
+      ['published', 'featured', 'displayOrder', 'status'].includes(key)
+    ) {
       patch[key] = incoming;
     }
   }
@@ -98,7 +104,12 @@ async function run() {
     }
 
     try {
-      const existing = await Project.findOne({ slug: project.slug });
+      const existing = await Project.findOne({
+        $or: [
+          { slug: project.slug },
+          { title: project.title },
+        ],
+      });
       if (!existing) {
         await Project.create(project);
         report.imported += 1;

@@ -104,11 +104,11 @@ const ProjectSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Always produce a unique slug from title
+// Produce a stable unique slug. If a seed/admin payload provides a slug, keep it.
 ProjectSchema.pre('validate', async function (next) {
-  if (!this.isModified('title') && this.slug) return next();
+  if (this.slug && !this.isModified('slug')) return next();
 
-  const base = slugify(this.title || '').slice(0, 80) || `project-${Date.now()}`;
+  const base = slugify(this.slug || this.title || '').slice(0, 80) || `project-${Date.now()}`;
   let candidate = base;
   let n = 1;
 
