@@ -55,7 +55,7 @@ const ProjectSchema = new mongoose.Schema(
     title:     { type: String, required: true, trim: true },
     slug:      { type: String, unique: true, index: true },
     summary:   { type: String, default: '', trim: true },
-    status:    { type: String, enum: ['draft', 'active', 'completed'], default: 'draft' },
+    status:    { type: String, enum: ['draft', 'active', 'completed', 'archived'], default: 'draft', index: true },
 
     client:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     developer: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },

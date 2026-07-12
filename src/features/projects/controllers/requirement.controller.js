@@ -4,6 +4,21 @@ import Requirement from "../../../models/Requirement.js";
 import Project from "../../../models/Project.js";
 import { uploadBuffer } from "../../../lib/supabase.js";
 
+function canRead(user, project) {
+  if (!user || !project) return false;
+  if (user.role === "admin") return true;
+  if (String(project.client || "") === String(user._id)) return true;
+  if (String(project.developer || "") === String(user._id)) return true;
+  return false;
+}
+
+function canWrite(user, project) {
+  if (!user || !project) return false;
+  if (user.role === "admin") return true;
+  if (user.role === "developer") return String(project.developer || "") === String(user._id);
+  return user.role === "client" && String(project.client || "") === String(user._id);
+}
+
 /**
  * Multer keeps files in memory so we can stream to Supabase.
  */
@@ -17,6 +32,9 @@ export const memUpload = multer({
  */
 export async function getRequirement(req, res) {
   const { projectId } = req.params;
+  const project = await Project.findById(projectId).select("client developer").lean();
+  if (!project) return res.status(404).json({ message: "Project not found" });
+  if (!canRead(req.user, project)) return res.status(403).json({ message: "Forbidden" });
   const doc = await Requirement.findOne({ project: projectId }).lean();
   res.json({ ok: true, requirement: doc || null });
 }
@@ -43,6 +61,10 @@ export async function upsertRequirement(req, res) {
   const { projectId } = req.params;
   const me = req.user;
   const now = Date.now();
+  const targetProject = await Project.findById(projectId).select("client developer").lean();
+  if (!targetProject) return res.status(404).json({ message: "Project not found" });
+  if (!canWrite(me, targetProject)) return res.status(403).json({ message: "Forbidden" });
+
   const filesByField = Array.isArray(req.files)
     ? req.files.reduce((acc, file) => {
         if (!acc[file.fieldname]) acc[file.fieldname] = [];
@@ -166,6 +188,9 @@ export async function upsertRequirement(req, res) {
 export async function setReview(req, res) {
   const { projectId } = req.params;
   const { reviewed = true } = req.body || {};
+  const project = await Project.findById(projectId).select("client developer").lean();
+  if (!project) return res.status(404).json({ message: "Project not found" });
+  if (!canRead(req.user, project)) return res.status(403).json({ message: "Forbidden" });
   const doc = await Requirement.findOneAndUpdate(
     { project: projectId },
     { $set: { reviewedByDev: !!reviewed, reviewedAt: reviewed ? new Date() : null } },
@@ -180,6 +205,8 @@ export async function setReview(req, res) {
  */
 export async function deleteRequirement(req, res) {
   const { projectId } = req.params;
+  const project = await Project.findById(projectId).select("_id").lean();
+  if (!project) return res.status(404).json({ message: "Project not found" });
   await Requirement.findOneAndDelete({ project: projectId });
   res.json({ ok: true });
 }

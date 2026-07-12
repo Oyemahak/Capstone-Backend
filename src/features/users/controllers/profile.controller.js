@@ -7,6 +7,80 @@ import User from '../../../models/User.js';
 // in-memory file buffer
 export const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } }); // 5MB
 
+const PROFILE_FIELDS = [
+  'name',
+  'phone',
+  'companyName',
+  'businessName',
+  'businessWebsite',
+  'industry',
+  'jobTitle',
+  'timezone',
+  'preferredContactMethod',
+  'bio',
+  'specialties',
+  'technologies',
+  'availability',
+  'projectContactPreference',
+  'notificationPreferences',
+];
+
+function cleanList(value) {
+  if (Array.isArray(value)) {
+    return value.map((item) => String(item || '').trim()).filter(Boolean).slice(0, 20);
+  }
+  if (typeof value === 'string') {
+    return value.split(',').map((item) => item.trim()).filter(Boolean).slice(0, 20);
+  }
+  return [];
+}
+
+function cleanProfilePatch(body = {}) {
+  const patch = {};
+
+  for (const key of PROFILE_FIELDS) {
+    if (!(key in body)) continue;
+
+    if (key === 'specialties' || key === 'technologies') {
+      patch[key] = cleanList(body[key]);
+      continue;
+    }
+
+    if (key === 'notificationPreferences') {
+      const prefs = body[key] || {};
+      patch[key] = {
+        portalUpdates: prefs.portalUpdates !== false,
+        emailUpdates: prefs.emailUpdates !== false,
+        billingAlerts: prefs.billingAlerts !== false,
+      };
+      continue;
+    }
+
+    patch[key] = String(body[key] || '').trim();
+  }
+
+  return patch;
+}
+
+// GET /api/users/me
+export async function getMyProfile(req, res) {
+  const user = await User.findById(req.user?._id).select('-password').lean();
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  res.json({ user });
+}
+
+// PATCH /api/users/me
+export async function updateMyProfile(req, res) {
+  const patch = cleanProfilePatch(req.body || {});
+  const user = await User.findByIdAndUpdate(req.user?._id, patch, {
+    new: true,
+    runValidators: true,
+  }).select('-password');
+
+  if (!user) return res.status(404).json({ message: 'User not found' });
+  res.json({ user });
+}
+
 // POST /api/users/me/avatar  (form-data: avatar)
 export async function setMyAvatar(req, res) {
   try {

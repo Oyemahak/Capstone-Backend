@@ -44,19 +44,93 @@ const PUBLIC_SELECT = [
   ...PORTFOLIO_FIELDS,
 ].join(' ');
 
-/** GET /api/projects?status=&q= */
-export async function listProjects(req, res) {
-  const { q = '', status } = req.query;
+function canReadProject(user, project) {
+  if (!user || !project) return false;
+  if (user.role === 'admin') return true;
+  if (String(project.client || '') === String(user._id)) return true;
+  if (String(project.developer || '') === String(user._id)) return true;
+  return false;
+}
 
-  const cond = {};
+function canWriteProject(user, project) {
+  if (!user || !project) return false;
+  if (user.role === 'admin') return true;
+  return user.role === 'developer' && String(project.developer || '') === String(user._id);
+}
+
+function projectScopeFor(user) {
+  if (!user || user.role === 'admin') return {};
+  if (user.role === 'developer') return { developer: user._id };
+  return { client: user._id };
+}
+
+function parseBool(value) {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (value === true || value === 'true') return true;
+  if (value === false || value === 'false') return false;
+  return undefined;
+}
+
+function sortSpec(value = '') {
+  const sorts = {
+    newest: { updatedAt: -1, createdAt: -1 },
+    oldest: { createdAt: 1 },
+    title: { title: 1 },
+    display: { featured: -1, displayOrder: 1, updatedAt: -1 },
+    completed: { completionDate: -1, updatedAt: -1 },
+  };
+  return sorts[value] || sorts.newest;
+}
+
+function addRegexFilter(cond, field, value) {
+  if (value) cond[field] = { $regex: value, $options: 'i' };
+}
+
+/** GET /api/projects?status=&q=&classification=&industry=&published=&featured=&sort= */
+export async function listProjects(req, res) {
+  const {
+    q = '',
+    status,
+    classification,
+    industry,
+    websiteType,
+    platform,
+    client,
+    developer,
+    sort = 'newest',
+  } = req.query;
+  const published = parseBool(req.query.published);
+  const featured = parseBool(req.query.featured);
+
+  const cond = projectScopeFor(req.user);
   if (status) cond.status = status;
+  if (classification) cond.projectClassification = classification;
+  if (published !== undefined) cond.published = published;
+  if (featured !== undefined) cond.featured = featured;
+  if (req.user?.role === 'admin' && client) cond.client = client;
+  if (req.user?.role === 'admin' && developer) cond.developer = developer;
+  addRegexFilter(cond, 'industry', industry);
+  addRegexFilter(cond, 'websiteType', websiteType);
+  addRegexFilter(cond, 'platform', platform);
+
   if (q) {
     const rx = { $regex: q, $options: 'i' };
-    cond.$or = [{ title: rx }, { summary: rx }];
+    cond.$or = [
+      { title: rx },
+      { slug: rx },
+      { summary: rx },
+      { shortDescription: rx },
+      { clientName: rx },
+      { industry: rx },
+      { websiteType: rx },
+      { platform: rx },
+      { technologies: rx },
+      { servicesProvided: rx },
+    ];
   }
 
-  const projects = await Project.find(cond).sort({ createdAt: -1 }).populate(POP);
-  res.json({ projects });
+  const projects = await Project.find(cond).sort(sortSpec(sort)).populate(POP);
+  res.json({ projects, total: projects.length });
 }
 
 /** GET /api/public/projects?industry=&classification=&q= */
@@ -103,6 +177,7 @@ export async function getProject(req, res) {
   const { projectId } = req.params;
   const project = await Project.findById(projectId).populate(POP);
   if (!project) return res.status(404).json({ message: 'Project not found' });
+  if (!canReadProject(req.user, project)) return res.status(403).json({ message: 'Forbidden' });
   res.json({ project });
 }
 
@@ -149,8 +224,7 @@ export async function updateProject(req, res) {
   if (!project) return res.status(404).json({ message: 'Project not found' });
 
   const isAdmin = req.user?.role === 'admin';
-  const isAssignedDev =
-    req.user?.role === 'developer' && String(project.developer) === String(req.user._id);
+  const isAssignedDev = req.user?.role === 'developer' && canWriteProject(req.user, project);
 
   if (!isAdmin && !isAssignedDev) {
     return res.status(403).json({ message: 'Forbidden' });
@@ -192,15 +266,56 @@ export async function updateProject(req, res) {
   res.json({ project: updated });
 }
 
-/** DELETE /api/projects/:projectId (admin) */
+/** DELETE /api/projects/:projectId (admin)
+ * Kept for backward compatibility, but archives instead of hard-deleting.
+ */
 export async function deleteProject(req, res) {
   const { projectId } = req.params;
-  const doc = await Project.findByIdAndDelete(projectId);
+  const doc = await Project.findByIdAndUpdate(
+    projectId,
+    { status: 'archived', published: false, featured: false },
+    { new: true, runValidators: true }
+  ).populate(POP);
   if (!doc) return res.status(404).json({ message: 'Project not found' });
-  res.json({ ok: true });
+  res.json({ ok: true, archived: true, project: doc });
 }
 
 export const removeProject = deleteProject;
+
+export async function archiveProject(req, res) {
+  const { projectId } = req.params;
+  const project = await Project.findByIdAndUpdate(
+    projectId,
+    { status: 'archived', published: false, featured: false },
+    { new: true, runValidators: true }
+  ).populate(POP);
+  if (!project) return res.status(404).json({ message: 'Project not found' });
+  res.json({ ok: true, project });
+}
+
+export async function publishProject(req, res) {
+  const { projectId } = req.params;
+  const published = parseBool(req.body?.published);
+  const project = await Project.findByIdAndUpdate(
+    projectId,
+    { published: published !== undefined ? published : true },
+    { new: true, runValidators: true }
+  ).populate(POP);
+  if (!project) return res.status(404).json({ message: 'Project not found' });
+  res.json({ ok: true, project });
+}
+
+export async function featureProject(req, res) {
+  const { projectId } = req.params;
+  const featured = parseBool(req.body?.featured);
+  const project = await Project.findByIdAndUpdate(
+    projectId,
+    { featured: featured !== undefined ? featured : true },
+    { new: true, runValidators: true }
+  ).populate(POP);
+  if (!project) return res.status(404).json({ message: 'Project not found' });
+  res.json({ ok: true, project });
+}
 
 // ─────────────────────────────────────────────────────────────
 // Evidence – explicit endpoint to add one entry (Admin/Dev)
@@ -217,6 +332,7 @@ export async function addEvidence(req, res) {
   const { title = 'Update', links = [], images = [] } = req.body || {};
   const project = await Project.findById(projectId);
   if (!project) return res.status(404).json({ message: 'Project not found' });
+  if (!canWriteProject(me, project)) return res.status(403).json({ message: 'Forbidden' });
 
   project.evidence.unshift({
     title: String(title || 'Update'),
@@ -237,8 +353,9 @@ export async function addEvidence(req, res) {
 /** GET /api/projects/:projectId/announcements */
 export async function listAnnouncements(req, res) {
   const { projectId } = req.params;
-  const project = await Project.findById(projectId).select('announcements').lean();
+  const project = await Project.findById(projectId).select('announcements client developer').lean();
   if (!project) return res.status(404).json({ message: 'Project not found' });
+  if (!canReadProject(req.user, project)) return res.status(403).json({ message: 'Forbidden' });
   const items = [...(project.announcements || [])].sort((a, b) => (b.ts || 0) - (a.ts || 0));
   res.json({ ok: true, items });
 }
@@ -257,6 +374,7 @@ export async function createAnnouncement(req, res) {
 
   const project = await Project.findById(projectId);
   if (!project) return res.status(404).json({ message: 'Project not found' });
+  if (!canWriteProject(me, project)) return res.status(403).json({ message: 'Forbidden' });
 
   const entry = { title: title.trim(), body: String(body || ''), ts: Date.now(), author: me._id };
   project.announcements.unshift(entry);

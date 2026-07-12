@@ -13,6 +13,29 @@ const UserSchema = new mongoose.Schema(
     // NEW: avatar fields
     avatarUrl: { type: String, trim: true, default: '' },  // public URL for header
     avatarPath: { type: String, trim: true, default: '' }, // storage path for clean deletes
+
+    phone: { type: String, trim: true, default: '' },
+    companyName: { type: String, trim: true, default: '' },
+    businessName: { type: String, trim: true, default: '' },
+    businessWebsite: { type: String, trim: true, default: '' },
+    industry: { type: String, trim: true, default: '' },
+    jobTitle: { type: String, trim: true, default: '' },
+    timezone: { type: String, trim: true, default: 'America/Toronto' },
+    preferredContactMethod: {
+      type: String,
+      enum: ['email', 'phone', 'whatsapp', 'portal'],
+      default: 'email',
+    },
+    bio: { type: String, trim: true, default: '' },
+    specialties: [{ type: String, trim: true }],
+    technologies: [{ type: String, trim: true }],
+    availability: { type: String, trim: true, default: '' },
+    projectContactPreference: { type: String, trim: true, default: '' },
+    notificationPreferences: {
+      portalUpdates: { type: Boolean, default: true },
+      emailUpdates: { type: Boolean, default: true },
+      billingAlerts: { type: Boolean, default: true },
+    },
   },
   { timestamps: true }
 );
